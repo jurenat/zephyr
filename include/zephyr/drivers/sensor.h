@@ -192,7 +192,8 @@ enum sensor_channel {
 	SENSOR_CHAN_GAUGE_DESIRED_VOLTAGE,
 	/** Desired charging current in mA */
 	SENSOR_CHAN_GAUGE_DESIRED_CHARGING_CURRENT,
-
+	/** Weight in grams */
+	SENSOR_CHAN_WEIGHT,
 	/** All channels. */
 	SENSOR_CHAN_ALL,
 
