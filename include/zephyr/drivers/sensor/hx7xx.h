@@ -14,15 +14,19 @@ extern "C" {
 #include <zephyr/device.h>
 #include <zephyr/drivers/sensor.h>
 
-enum hx711_gain {
-	HX711_GAIN_128X = 1,
-	HX711_GAIN_32X,
-	HX711_GAIN_64X,
+enum hx7xx_gain {
+	HX7xx_GAIN_8X = 8,
+	HX7xx_GAIN_32X = 32,
+	HX7xx_GAIN_64X = 64,
+	HX7xx_GAIN_128X = 128,
 };
 
-enum hx711_rate {
-	HX711_RATE_10HZ,
-	HX711_RATE_80HZ,
+enum hx7xx_rate {
+	HX7xx_RATE_10HZ = 10,
+	HX7xx_RATE_20HZ = 20,
+	HX7xx_RATE_40HZ = 40,
+	HX7xx_RATE_80HZ = 80,
+	HX7xx_RATE_320HZ = 320,
 };
 
 /**
@@ -36,7 +40,7 @@ enum hx711_rate {
  * @retval -EINVAL If bad arguments are passed.
  *
  */
-int avia_hx711_tare(const struct device *dev, uint8_t readings);
+int avia_hx7xx_tare(const struct device *dev, uint8_t readings);
 
 /**
  * @brief Callibrate the HX711.
@@ -55,7 +59,7 @@ int avia_hx711_tare(const struct device *dev, uint8_t readings);
  * @retval 0 If successful.
  * @retval -EINVAL If bad arguments are passed.
  */
-int avia_hx711_calibrate(const struct device *dev, uint8_t readings, double calibration_weight);
+int avia_hx7xx_calibrate(const struct device *dev, uint8_t readings, double calibration_weight);
 
 #ifdef __cplusplus
 }

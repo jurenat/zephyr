@@ -2,4 +2,4 @@
 
 zephyr_library()
 
-zephyr_library_sources(hx711.c)
+zephyr_library_sources(hx7xx.c)

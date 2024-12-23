@@ -7,7 +7,7 @@
 
 #include <zephyr/device.h>
 #include <zephyr/drivers/sensor.h>
-#include <zephyr/drivers/sensor/hx711.h>
+#include <zephyr/drivers/sensor/hx7xx.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/pm/device.h>
 #include <zephyr/pm/pm.h>
@@ -21,7 +21,7 @@ LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 
 const struct device *hx711;
 
-void set_rate(enum hx711_rate rate)
+void set_rate(enum hx7xx_rate rate)
 {
 	static struct sensor_value rate_val;
 
@@ -49,11 +49,16 @@ int main(void)
 
 	__ASSERT(hx711 == NULL, "Failed to get device binding");
 
+	if (!device_is_ready(hx711)) {
+		LOG_ERR("Device is not ready");
+		return -EBUSY;
+	}
+
 	LOG_INF("============= start =============");
 	LOG_INF("device is %p, name is %s", hx711, hx711->name);
 
 	LOG_INF("Calculating offset...");
-	avia_hx711_tare(hx711, 15);
+	avia_hx7xx_tare(hx711, 15);
 
 	LOG_INF("waiting for known weight of %f grams...", CALIBRATION_WEIGHT);
 
@@ -63,18 +68,18 @@ int main(void)
 	}
 
 	LOG_INF("Calculating slope...");
-	avia_hx711_calibrate(hx711, 15, CALIBRATION_WEIGHT);
-
+	avia_hx7xx_calibrate(hx711, 15, CALIBRATION_WEIGHT);
+	return 0;
 	while (true) {
 		k_msleep(1000);
 		LOG_INF("== Test measure ==");
 		LOG_INF("= Setting sampling rate to 10Hz.");
-		set_rate(HX711_RATE_10HZ);
+		set_rate(HX7xx_RATE_10HZ);
 		measure();
 
 		k_msleep(1000);
 		LOG_INF("= Setting sampling rate to 80Hz.");
-		set_rate(HX711_RATE_80HZ);
+		set_rate(HX7xx_RATE_80HZ);
 		measure();
 
 		LOG_INF("====== Reboot in 5sec. =========");

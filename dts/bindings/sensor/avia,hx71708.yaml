@@ -3,21 +3,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 description: |
-  Avia HX711 sensor
+  Avia HX71708 sensor
 
-compatible: "avia,hx711"
+compatible: "avia,hx71708"
 
 include: avia,hx7xx-common.yaml
 
 properties:
-  gain:
-    type: int
-    description: |
-      Gain of the sensor.
-      Default set to 128x as this is the sensors default setting after power-up.
-    default: 128
-    enum: [128, 32, 64]
-
   rate-hz:
     type: int
     description: |
@@ -26,9 +18,4 @@ properties:
       If CONFIG_PM_DEVICE_RUNTIME = y rate will not be higher
       than 2~3Hz due to the long wake-up time needed for HX711.
     default: 10
-    enum: [10, 80]
-
-  rate-gpios:
-    type: phandle-array
-    description: |
-      Pin on which sampling rate is chosen.
+    enum: [10, 20, 80, 320]
