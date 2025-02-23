@@ -154,6 +154,7 @@ static int mipi_dsi_stm32_host_init(const struct device *dev)
 
 	ret = clock_control_get_rate(config->rcc, (clock_control_subsys_t)&config->pix_clk,
 				     &data->pixel_clk_khz);
+	data->pixel_clk_khz = 41666666;
 	if (ret) {
 		LOG_ERR("Get pixel clock failed! (%d)", ret);
 		return ret;

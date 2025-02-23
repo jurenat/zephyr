@@ -357,9 +357,9 @@ static int stm32_ltdc_init(const struct device *dev)
 	LL_RCC_PLLSAI_Disable();
 	LL_RCC_PLLSAI_ConfigDomain_LTDC(LL_RCC_PLLSOURCE_HSE,
 					LL_RCC_PLLM_DIV_25,
-					384,
-					LL_RCC_PLLSAIR_DIV_5,
-					LL_RCC_PLLSAIDIVR_DIV_8);
+					250,
+					LL_RCC_PLLSAIR_DIV_3,
+					LL_RCC_PLLSAIDIVR_DIV_2);
 
 	LL_RCC_PLLSAI_Enable();
 	while (LL_RCC_PLLSAI_IsReady() != 1) {

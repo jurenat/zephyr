@@ -56,3 +56,16 @@ properties:
     description: |
         PLL division factor for PLL48CK
         Valid range: 2 - 15
+
+  div-r:
+    type: int
+    required: true
+    description: |
+        PLL division factor for PLLCLK
+    enum:
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7

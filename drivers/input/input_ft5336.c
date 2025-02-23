@@ -122,7 +122,7 @@ static int ft5336_process(const struct device *dev)
 				 points, touch_id, row, col);
 		} else {
 			pressed = false;
-			LOG_WRN("bad TOUCH_ID: row: %d, col: %d", row, col);
+			LOG_WRN_ONCE("bad TOUCH_ID: row: %d, col: %d", row, col);
 		}
 	} else  {
 		/* no touch = no press */

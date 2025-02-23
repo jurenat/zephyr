@@ -7,12 +7,13 @@
 #include <zephyr/dt-bindings/display/panel.h>
 
 / {
+#if 0
 	lvgl_pointer {
 		compatible = "zephyr,lvgl-pointer-input";
 		input = <&ft5336>;
 		invert-y;
 	};
-
+#endif
 	chosen {
 		zephyr,display = &zephyr_lcd_controller;
 	};
@@ -54,7 +55,7 @@
 		vfront-porch = <16>;
 	};
 };
-
+#if 0
 &qsh_030_i2c {
 	ft5336: ft5336@38 {
 		compatible = "focaltech,ft5336";
@@ -63,3 +64,4 @@
 		status = "okay";
 	};
 };
+#endif
