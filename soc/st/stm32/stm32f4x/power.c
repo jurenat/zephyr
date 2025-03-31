@@ -10,6 +10,7 @@
 #include <stm32f4xx_ll_bus.h>
 #include <stm32f4xx_ll_cortex.h>
 #include <stm32f4xx_ll_pwr.h>
+#include <stm32f4xx_ll_system.h>
 #include <stm32f4xx.h>
 
 #include <zephyr/drivers/clock_control/stm32_clock_control.h>
@@ -44,6 +45,12 @@ void pm_state_set(enum pm_state state, uint8_t substate_id)
 
 		k_cpu_idle();
 
+		break;
+	case PM_STATE_STANDBY:
+		LL_PWR_SetPowerMode(LL_PWR_MODE_STANDBY);
+		LL_LPM_EnableDeepSleep();
+		LL_DBGMCU_DisableDBGStandbyMode();
+		k_cpu_idle();
 		break;
 	default:
 		LOG_DBG("Unsupported power state %u", state);
