@@ -128,44 +128,25 @@ static int hx7xx_cycle(const struct device *dev)
 	return gpio_pin_get_dt(&cfg->data_out);
 }
 
-/**
- * @brief Read HX7xx data. Also sets GAIN for the next cycle.
- *
- * @param dev Pointer to the hx7xx device structure
- * @param chan Channel to fetch data for.
- *             Only SENSOR_CHANNEL_MASS is available.
- *
- * @retval 0 on success,
- * @retval -EACCES error if module is not powered up.
- * @retval -EIO error if sample_fetch_timeout_ms msec's elapsed with no data
- * available.
- *
- */
-static int hx7xx_sample_fetch(const struct device *dev, enum sensor_channel chan)
+static int hx7xx_sample_fetch_raw(const struct device *dev)
 {
 	const struct hx7xx_config *cfg = dev->config;
 	struct hx7xx_data *data = dev->data;
 	uint32_t count = 0;
 	int i, ret;
 
-	ret = pm_device_runtime_get(dev);
-	if (ret) {
-		return ret;
-	}
-
 	if (cfg->sample_fetch_timeout_ms != 0 && gpio_pin_get_dt(&cfg->data_out) == 1) {
 		ret = gpio_pin_interrupt_configure_dt(&cfg->data_out, GPIO_INT_EDGE_TO_INACTIVE);
 		if (ret) {
 			LOG_ERR("Failed to set dout GPIO interrupt");
-			goto exit_fail;
+			return ret;
 		}
 
 		/* Wait until reading is ready */
 		if (k_sem_take(&data->data_out_sem, K_MSEC(cfg->sample_fetch_timeout_ms))) {
 			LOG_ERR("Data not ready within %d ms. Is the device properly connected?",
 				cfg->sample_fetch_timeout_ms);
-			ret = -EIO;
-			goto exit_fail;
+			return -EIO;
 		}
 	}
 
@@ -185,7 +166,76 @@ static int hx7xx_sample_fetch(const struct device *dev, enum sensor_channel chan
 	data->sample = count;
 	LOG_DBG("Raw reading : %d", data->sample);
 
-exit_fail:
+	return 0;
+}
+
+static int hx7xx_average_samples(const struct device *dev, uint8_t *samples)
+{
+	struct hx7xx_data *data = dev->data;
+	uint8_t valid_samples = 0;
+	uint32_t sum = 0;
+	int ret;
+
+	__ASSERT(readings != NULL, "readings cannot be NULL");
+
+	if (!dev) {
+		return -EINVAL;
+	}
+
+	*samples = MAX(*samples, 1);
+
+	ret = pm_device_runtime_get(dev);
+	if (ret) {
+		return ret;
+	}
+
+	for (int i = 0; i < *samples; i++) {
+		ret = hx7xx_sample_fetch_raw(dev);
+		if (ret) {
+			LOG_WRN("Fetching sample %d was not successful (%d)", i, ret);
+			continue;
+		}
+
+		sum += data->sample;
+		valid_samples++;
+		k_busy_wait(BUSY_WAIT_US);
+	}
+
+	pm_device_runtime_put(dev);
+
+	if (valid_samples == 0) {
+		return -EIO;
+	}
+
+	*samples = valid_samples;
+
+	return sum / valid_samples;
+}
+
+/**
+ * @brief Read HX7xx data. Also sets GAIN for the next cycle.
+ *
+ * @param dev Pointer to the hx7xx device structure
+ * @param chan Channel to fetch data for.
+ *             Only SENSOR_CHANNEL_MASS is available.
+ *
+ * @retval 0 on success,
+ * @retval -EACCES error if module is not powered up.
+ * @retval -EIO error if sample_fetch_timeout_ms msec's elapsed with no data
+ * available.
+ *
+ */
+static int hx7xx_sample_fetch(const struct device *dev, enum sensor_channel chan)
+{
+	int i, ret;
+
+	ret = pm_device_runtime_get(dev);
+	if (ret) {
+		return ret;
+	}
+
+	ret = hx7xx_sample_fetch_raw(dev);
+
 	i = pm_device_runtime_put(dev);
 	return ret ? ret : i;
 }
@@ -480,56 +530,17 @@ static int hx7xx_init(const struct device *dev)
 	return 0;
 }
 
-static int hx7xx_bulk_read(const struct device *dev, uint8_t *readings, uint32_t *sum)
-{
-	struct hx7xx_data *data = dev->data;
-	uint8_t valid_samples = 0;
-	int ret;
-
-	__ASSERT(readings != NULL, "readings cannot be NULL");
-	__ASSERT(sum != NULL, "sum cannot be NULL");
-
-	if (!dev) {
-		return -EINVAL;
-	}
-
-	*readings = MAX(*readings, 1);
-	*sum = 0;
-
-	for (int i = 0; i < *readings; i++) {
-		ret = hx7xx_sample_fetch(dev, SENSOR_CHAN_MASS);
-		if (ret) {
-			LOG_WRN("Fetching sample %d was not successful (%d)", i, ret);
-			return ret;
-		}
-
-		*sum += data->sample;
-		valid_samples++;
-	}
-
-	if (valid_samples == 0) {
-		return -EIO;
-	}
-
-	*readings = valid_samples;
-
-	return 0;
-}
-
 int avia_hx7xx_tare(const struct device *dev, uint8_t readings)
 {
 	struct hx7xx_data *data = dev->data;
-	int32_t avg;
 	int ret;
 
-	ret = hx7xx_bulk_read(dev, &readings, &avg);
-	if (ret) {
+	ret = hx7xx_average_samples(dev, &readings);
+	if (ret < 0) {
 		return ret;
 	}
 
-	LOG_DBG("Sum of samples : %d", avg);
-	avg /= readings;
-	data->offset = avg;
+	data->offset = ret;
 	LOG_DBG("Offset set to %d", data->offset);
 
 	return 0;
@@ -538,7 +549,6 @@ int avia_hx7xx_tare(const struct device *dev, uint8_t readings)
 int avia_hx7xx_calibrate(const struct device *dev, uint8_t readings, double calibration_weight)
 {
 	struct hx7xx_data *data = dev->data;
-	int32_t avg;
 	int ret;
 
 	if (calibration_weight <= 0) {
@@ -546,21 +556,19 @@ int avia_hx7xx_calibrate(const struct device *dev, uint8_t readings, double cali
 	}
 
 	LOG_DBG("Calibration weight : %f", calibration_weight);
-	ret = hx7xx_bulk_read(dev, &readings, &avg);
-	if (ret) {
+	ret = hx7xx_average_samples(dev, &readings);
+	if (ret < 0) {
 		return ret;
 	}
 
-	LOG_DBG("Sum of samples : %d", avg);
-	avg /= readings;
-	LOG_DBG("Average of samples : %d", avg);
-	data->slope = calibration_weight / (avg - data->offset);
+	LOG_DBG("Average of samples : %d", ret);
+	data->slope = calibration_weight / (ret - data->offset);
 	LOG_DBG("Slope set to : %f", data->slope);
 
 	return 0;
 }
 
-#ifdef CONFIG_PM_DEVICE
+#ifdef CONFIG_PM_DEVICE_RUNTIME
 /**
  * @brief Set the Device Power Management State.
  *
@@ -679,7 +687,7 @@ static int hx711_power_on(const struct device *dev)
 	 * GAIN is set to 128 channel A after RESET
 	 */
 	LOG_DBG("Setting GAIN. Ignore the next measurement.");
-	return hx7xx_sample_fetch(dev, SENSOR_CHAN_MASS);
+	return hx7xx_sample_fetch_raw(dev);
 }
 
 static const struct hx7xx_quirks hx711_quirks = {
@@ -858,12 +866,12 @@ static const struct hx7xx_quirks hx71708_quirks = {
 		.serial_clock = GPIO_DT_SPEC_GET(node, sck_gpios),                                 \
 		.quirks = quirks_ptr,                                                              \
 		rate_fn(node)};                                                                    \
-                                                                                                   \
-	PM_DEVICE_DT_DEFINE(node, hx7xx_pm_action);                                                \
-                                                                                                   \
-	DEVICE_DT_DEFINE(node, hx7xx_init, PM_DEVICE_DT_GET(node), &hx7xx_data_##node,             \
-			 &hx7xx_config_##node, POST_KERNEL, CONFIG_SENSOR_INIT_PRIORITY,           \
-			 &hx7xx_api);
+	IF_ENABLED(CONFIG_PM_DEVICE_RUNTIME, (PM_DEVICE_DT_DEFINE(node, hx7xx_pm_action)));        \
+	SENSOR_DEVICE_DT_DEFINE(node, hx7xx_init,                                                  \
+				COND_CODE_1(CONFIG_PM_DEVICE_RUNTIME, (PM_DEVICE_DT_GET(node)),    \
+					    (NULL)), &hx7xx_data_##node,                           \
+					     &hx7xx_config_##node, POST_KERNEL,                    \
+					     CONFIG_SENSOR_INIT_PRIORITY, &hx7xx_api);
 
 /* HX710, HX712, HX720 */
 DT_FOREACH_STATUS_OKAY_VARGS(avia_hx710, HX7xx_INIT, HX710_RATE_PIN_DEFINE, &hx710_quirks)
