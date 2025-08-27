@@ -590,6 +590,14 @@ static int rtc_stm32_init(const struct device *dev)
 	z_stm32_hsem_unlock(CFG_HW_RCC_SEMID);
 
 #if !defined(CONFIG_COUNTER_RTC_STM32_SAVE_VALUE_BETWEEN_RESETS)
+#ifdef RTC_CR_BYPSHAD
+	if (LL_RTC_IsShadowRegBypassEnabled(RTC)) {
+		LL_RTC_DisableWriteProtection(RTC);
+		LL_RTC_DisableShadowRegBypass(RTC);
+		LL_RTC_EnableWriteProtection(RTC);
+	}
+#endif /* RTC_CR_BYPSHAD */
+
 	if (LL_RTC_DeInit(RTC) != SUCCESS) {
 		goto out_disable_bkup_access;
 	}
