@@ -21,6 +21,7 @@
 		zephyr,sram = &sram0;
 		zephyr,flash = &flash0;
 		zephyr,flash-controller = &mt25ql512ab1;
+		zephyr,code-partition = &slot0_partition;
 		zephyr,canbus = &fdcan1;
 	};
 
@@ -278,6 +279,38 @@
 				STM32_FMC_SDRAM_RBURST_ENABLE
 				STM32_FMC_SDRAM_RPIPE_0>;
 			st,sdram-timing = <2 7 4 7 2 2 2>;
+		};
+	};
+};
+
+&flash0 {
+	partitions {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		boot_partition: partition@0 {
+			label = "mcuboot";
+			reg = <0x00000000 DT_SIZE_K(128)>;
+			read-only;
+		};
+
+		/* application image slot: 256KB */
+		slot0_partition: partition@20000 {
+			label = "image-0";
+			reg = <0x00020000 DT_SIZE_K(384)>;
+		};
+
+		/* backup slot: 256KB */
+		slot1_partition: partition@80000 {
+			label = "image-1";
+			reg = <0x00080000 DT_SIZE_K(256)>;
+		};
+
+		/* swap slot: 128KB */
+		scratch_partition: partition@c0000 {
+			label = "image-scratch";
+			reg = <0x000c0000 DT_SIZE_K(128)>;
 		};
 	};
 };
